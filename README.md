@@ -96,7 +96,7 @@ using Camera with maximum size, extension, crop, rotate, zoom and compress featu
 
     ```kotlin
         dependencies {
-            implementation("com.github.SimformSolutionsPvtLtd:SSImagePicker:2.3")
+            implementation("com.github.SimformSolutionsPvtLtd:SSImagePicker:2.4")
         }
     ```
 

@@ -6,12 +6,15 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
 import androidx.databinding.DataBindingUtil
@@ -74,6 +77,7 @@ class ImagePickerActivity : AppCompatActivity(), View.OnClickListener {
         openCameraAfterPermission = pickerConfig.pickerType == PickerType.CAMERA
         pickImage()
         addObserver()
+        enableEdgeToEdge(binding.toolbar.root)
     }
 
     private fun setUI() {
@@ -173,24 +177,20 @@ class ImagePickerActivity : AppCompatActivity(), View.OnClickListener {
     }
 
     /**
-     * Apps targeting for Android 13 or higher requires to declare READ_MEDIA_* to request the media that other apps have created.
-     * The READ_EXTERNAL_STORAGE will not work on Android 13 and higher to access the media created by other apps.
-     * If the user previously granted app the READ_EXTERNAL_STORAGE permission, the system automatically grants the granular media permission.
-     * [More Details](https://developer.android.com/about/versions/13/behavior-changes-13#granular-media-permissions)
-     * So for Android 13+ we are asking for permission READ_MEDIA_IMAGES and below that READ_EXTERNAL_STORAGE to get the images from device.
+     * For Android 13+ (API level 33), the Photo Picker API is now the preferred method to access media files.
+     * For Android 12L and below, we need READ_EXTERNAL_STORAGE permission.
+     * This approach avoids the need for READ_MEDIA permissions on Android 13+.
      */
     private fun showGallery() {
-        val permission = if (isAtLeast13()) {
-            Manifest.permission.READ_MEDIA_IMAGES
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        }
-        if (checkForPermission(permission)) {
+        // For Android 13+, we don't need permissions with Photo Picker API
+        // For below Android 13, we need READ_EXTERNAL_STORAGE permission
+        if (checkForPermission(Manifest.permission.READ_EXTERNAL_STORAGE)) {
             replaceFragment(getInitialFragment())
             viewModel.fetchImagesFromMediaStore()
         } else {
+            // Always request permission for pre-Android 13 devices
             openCameraAfterPermission = false
-            askPermission(permission)
+            askPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
     }
 
@@ -251,7 +251,7 @@ class ImagePickerActivity : AppCompatActivity(), View.OnClickListener {
         }
 
     private fun checkForCropping(imageUri: Uri) {
-        if (pickerConfig.openCropOptions || pickerConfig.compressImage) {
+        if (pickerConfig.openCropOptions || pickerConfig.compressImage || pickerConfig.aspectRatio != null) {
             val date =
                 SimpleDateFormat(dateFormatForTakePicture, Locale.getDefault()).format(Date())
             val imageFile = createImageFile(date)
@@ -267,6 +267,11 @@ class ImagePickerActivity : AppCompatActivity(), View.OnClickListener {
      * Cropping option for the crop screen. Changing colors and setting ui controls.
      */
     private fun getUCropOptions(): UCrop.Options {
+        pickerConfig.aspectRatio?.let { aspectRatio ->
+            return UCrop.Options().apply {
+                withAspectRatio(aspectRatio.x, aspectRatio.y)
+            }
+        }
         return UCrop.Options().apply {
             setFreeStyleCropEnabled(pickerConfig.openCropOptions)
             setHideBottomControls(!pickerConfig.openCropOptions)
@@ -331,5 +336,22 @@ class ImagePickerActivity : AppCompatActivity(), View.OnClickListener {
         onCropImageActivityResult.unregister()
         onGetImageFromCameraActivityResult.unregister()
         super.onDestroy()
+    }
+
+    //If you are using custom theming and need to change the status bar color,
+    // it may not work unless you specify a particular view object, like a toolbar.
+    private fun enableEdgeToEdge(view: View?) {
+        view?.let {
+            ViewCompat.setOnApplyWindowInsetsListener(it) { view, windowInsets ->
+                val systemBarInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+                view.setPadding(
+                    systemBarInsets.left,
+                    systemBarInsets.top,
+                    systemBarInsets.right,
+                    0
+                )
+                windowInsets
+            }
+        }
     }
 }

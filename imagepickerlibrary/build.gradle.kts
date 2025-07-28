@@ -21,7 +21,7 @@ afterEvaluate {
 }
 
 android {
-    compileSdk = 34
+    compileSdk = 35
     namespace = "com.app.imagepickerlibrary"
     defaultConfig {
         minSdk = libs.versions.min.sdk.get().toInt()

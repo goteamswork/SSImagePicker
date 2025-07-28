@@ -65,6 +65,7 @@ dependencies {
     implementation(libs.ucrop)
     implementation(libs.coil)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.exifinterface)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

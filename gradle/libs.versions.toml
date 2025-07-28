@@ -25,10 +25,11 @@ rules = "1.6.1"
 runner = "1.6.2"
 sdp-android = "1.1.0"
 ssp-android = "1.1.0"
-ucrop = "2.2.8"
+ucrop = "2.2.10"
 androidGradlePlugin = "8.6.1"
 androidLibraryPlugin = "8.6.1"
 kotlinGradlePlugin = "2.0.21"
+exifinterface = "1.4.1"
 
 [libraries]
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activity-ktx" }
@@ -53,6 +54,7 @@ rules = { module = "androidx.test:rules", version.ref = "rules" }
 sdp-android = { module = "com.intuit.sdp:sdp-android", version.ref = "sdp-android" }
 ssp-android = { module = "com.intuit.ssp:ssp-android", version.ref = "ssp-android" }
 ucrop = { module = "com.github.yalantis:ucrop", version.ref = "ucrop" }
+androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }

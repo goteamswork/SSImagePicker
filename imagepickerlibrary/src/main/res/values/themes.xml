@@ -104,8 +104,4 @@
         <item name="android:gravity">center</item>
         <item name="android:padding">@dimen/_14sdp</item>
     </style>
-
-    <style name="AppThemeUCrop" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:ignore="NewApi">true</item>
-    </style>
 </resources>

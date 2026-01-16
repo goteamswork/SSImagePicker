@@ -26,9 +26,9 @@ runner = "1.6.2"
 sdp-android = "1.1.0"
 ssp-android = "1.1.0"
 ucrop = "2.2.11"
-androidGradlePlugin = "8.6.1"
-androidLibraryPlugin = "8.6.1"
-kotlinGradlePlugin = "2.0.21"
+androidGradlePlugin = "8.13.2"
+androidLibraryPlugin = "8.13.2"
+kotlinGradlePlugin = "2.3.0"
 exifinterface = "1.4.1"
 
 [libraries]

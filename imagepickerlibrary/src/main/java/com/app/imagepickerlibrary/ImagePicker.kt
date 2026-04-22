@@ -1,7 +1,9 @@
 package com.app.imagepickerlibrary
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.activity.ComponentActivity
@@ -11,22 +13,49 @@ import androidx.fragment.app.Fragment
 import com.app.imagepickerlibrary.listener.ImagePickerResultListener
 import com.app.imagepickerlibrary.model.AspectRatio
 import com.app.imagepickerlibrary.model.PickExtension
+import com.app.imagepickerlibrary.model.PickerConfig
 import com.app.imagepickerlibrary.model.PickerType
 import com.app.imagepickerlibrary.ui.activity.ImagePickerActivity
 import com.app.imagepickerlibrary.util.PickerConfigManager
 import com.app.imagepickerlibrary.util.isAtLeast13
 import com.app.imagepickerlibrary.util.isPhotoPickerAvailable
+import com.yalantis.ucrop.UCrop
 import java.lang.Integer.min
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class ImagePicker private constructor(
     private val callback: ImagePickerResultListener,
     private val activity: ComponentActivity
 ) {
-    private val picker = activity.registerActivityResult("image-picker") {
-        val isMultipleSelection = pickerConfigManager.getPickerConfig().allowMultipleSelection
-        it.getImages(isMultipleSelection, callback)
+    private val picker = activity.registerActivityResult("image-picker") { result ->
+        val config = pickerConfigManager.getPickerConfig()
+        val isMultiple = config.allowMultipleSelection
+
+        val uris = result.getImageUris()
+
+        // if single image from gallery and Android 13+ then crop. Android 13+ uses Android Image Picker
+        if (config.openCropOptions &&
+            config.pickerType == PickerType.GALLERY &&
+            uris.size == 1 &&
+            isAtLeast13()
+        ) {
+            launchCrop(uris.first(), config)
+        } else {
+            result.getImages(isMultiple, callback)
+        }
     }
     private val pickerConfigManager = PickerConfigManager(activity)
+
+    private val cropLauncher = activity.registerActivityResult("image-crop") {
+        if (it.resultCode == Activity.RESULT_OK) {
+            val resultUri = it.data?.let { data -> UCrop.getOutput(data) }
+            if (resultUri != null) {
+                callback.onImagePick(resultUri)
+            }
+        }
+    }
 
     /**
      * ImagePickerActivity tool bar title
@@ -242,6 +271,43 @@ class ImagePicker private constructor(
             min(MediaStore.getPickImagesMaxLimit(), pickerConfig.maxPickCount)
         } else {
             pickerConfig.maxPickCount
+        }
+    }
+
+    /**
+     * Launch crop method for cropping gallery image selected from Android Image Picker.
+     */
+    private fun launchCrop(sourceUri: Uri, config: PickerConfig) {
+        val date =
+            SimpleDateFormat(dateFormatForTakePicture, Locale.getDefault()).format(Date())
+        val destinationFile = activity.createImageFile(date)
+        val destinationUri = Uri.fromFile(destinationFile)
+
+        val uCrop = UCrop.of(sourceUri, destinationUri)
+            .withOptions(getUCropOptions(config))
+
+        cropLauncher.launch(uCrop.getIntent(activity))
+    }
+
+    /**
+     * Cropping option for the crop screen. Changing colors and setting ui controls.
+     */
+    private fun getUCropOptions(config: PickerConfig): UCrop.Options {
+        config.aspectRatio?.let { aspectRatio ->
+            return UCrop.Options().apply {
+                withAspectRatio(aspectRatio.x, aspectRatio.y)
+            }
+        }
+        return UCrop.Options().apply {
+            setFreeStyleCropEnabled(config.openCropOptions)
+            setHideBottomControls(!config.openCropOptions)
+            setToolbarColor(activity.getColorAttribute(R.attr.ssUCropToolbarColor))
+            setStatusBarLight(false)
+            setToolbarWidgetColor(activity.getColorAttribute(R.attr.ssUCropToolbarWidgetColor))
+            setActiveControlsWidgetColor(activity.getColorAttribute(R.attr.ssUCropActiveControlWidgetColor))
+            if (config.compressImage) {
+                setCompressionQuality(config.compressQuality)
+            }
         }
     }
 

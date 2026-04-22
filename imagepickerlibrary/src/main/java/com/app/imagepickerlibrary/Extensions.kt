@@ -182,6 +182,32 @@ internal fun ActivityResult.getImages(isMultiPick: Boolean, callback: ImagePicke
 }
 
 /**
+ * Extension function to get image uris from picker
+ */
+fun ActivityResult.getImageUris(): List<Uri> {
+    val intent = this.data ?: return emptyList()
+
+    val uris = mutableListOf<Uri>()
+
+    // Multiple (ClipData)
+    intent.clipData?.let { clipData ->
+        for (i in 0 until clipData.itemCount) {
+            clipData.getItemAt(i)?.uri?.let { uris.add(it) }
+        }
+    }
+
+    // Single
+    intent.data?.let { uris.add(it) }
+
+    // Fallback safety
+    if (uris.isEmpty() && intent.data != null) {
+        uris.add(intent.data!!)
+    }
+
+    return uris.distinct()
+}
+
+/**
  * Extension function to get parcelable from intent according to API level
  */
 @Suppress("DEPRECATION")

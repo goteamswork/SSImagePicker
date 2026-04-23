@@ -20,6 +20,7 @@ import com.app.imagepickerlibrary.util.PickerConfigManager
 import com.app.imagepickerlibrary.util.isAtLeast13
 import com.app.imagepickerlibrary.util.isPhotoPickerAvailable
 import com.yalantis.ucrop.UCrop
+import java.io.File
 import java.lang.Integer.min
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -48,14 +49,26 @@ class ImagePicker private constructor(
     }
     private val pickerConfigManager = PickerConfigManager(activity)
 
-    private val cropLauncher = activity.registerActivityResult("image-crop") {
-        if (it.resultCode == Activity.RESULT_OK) {
-            val resultUri = it.data?.let { data -> UCrop.getOutput(data) }
-            if (resultUri != null) {
-                callback.onImagePick(resultUri)
+    private var cropFile: File? = null
+    private val cropLauncher = activity.registerActivityResult(
+        name = "image-crop",
+        errorCallback = {
+            // crop cancelled → delete temp crop file
+            cropFile?.delete()
+            cropFile = null
+        },
+        successCallBack = {
+            if (it.resultCode == Activity.RESULT_OK) {
+                val resultUri = it.data?.let { data -> UCrop.getOutput(data) }
+                if (resultUri != null) {
+                    callback.onImagePick(resultUri)
+                } else {
+                    // crop failed → delete temp crop file
+                    cropFile?.delete()
+                }
             }
         }
-    }
+    )
 
     /**
      * ImagePickerActivity tool bar title
@@ -281,6 +294,8 @@ class ImagePicker private constructor(
         val date =
             SimpleDateFormat(dateFormatForTakePicture, Locale.getDefault()).format(Date())
         val destinationFile = activity.createImageFile(date)
+        cropFile = destinationFile
+
         val destinationUri = Uri.fromFile(destinationFile)
 
         val uCrop = UCrop.of(sourceUri, destinationUri)

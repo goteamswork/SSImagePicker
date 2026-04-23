@@ -25,6 +25,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.app.imagepickerlibrary.R
 import com.app.imagepickerlibrary.addFragment
+import com.app.imagepickerlibrary.clearOldTempFiles
 import com.app.imagepickerlibrary.createImageFile
 import com.app.imagepickerlibrary.databinding.ActivityImagePickerBinding
 import com.app.imagepickerlibrary.dateFormatForTakePicture
@@ -40,10 +41,10 @@ import com.app.imagepickerlibrary.registerActivityResult
 import com.app.imagepickerlibrary.replaceFragment
 import com.app.imagepickerlibrary.ui.fragment.FolderFragment
 import com.app.imagepickerlibrary.ui.fragment.ImageFragment
-import com.app.imagepickerlibrary.util.isAtLeast13
 import com.app.imagepickerlibrary.viewmodel.ImagePickerViewModel
 import com.yalantis.ucrop.UCrop
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -60,6 +61,7 @@ class ImagePickerActivity : AppCompatActivity(), View.OnClickListener {
     }
     private lateinit var pickerConfig: PickerConfig
     private var fileUri: Uri? = null
+    private var cropFile: File? = null
     private var toolBarTitle = ""
     private lateinit var backPressedCallback: OnBackPressedCallback
     private var openCameraAfterPermission: Boolean = false
@@ -146,6 +148,7 @@ class ImagePickerActivity : AppCompatActivity(), View.OnClickListener {
     }
 
     private fun pickImage() {
+        clearOldTempFiles() // clean old images
         if (openCameraAfterPermission) {
             showCamera()
         } else {
@@ -241,9 +244,30 @@ class ImagePickerActivity : AppCompatActivity(), View.OnClickListener {
         }
 
     private val onCropImageActivityResult =
-        registerActivityResult("CropImage", { createSingleSelectionResult(null) }) {
-            createSingleSelectionResult(it.data?.let { intent -> UCrop.getOutput(intent) })
-        }
+        registerActivityResult(
+            name = "CropImage",
+            errorCallback = {
+                // Crop cancelled → delete everything from this flow
+                // delete crop file
+                cropFile?.delete()
+                cropFile = null
+
+                // delete camera original file
+                deleteOriginalCameraFileIfNeeded()
+
+                createSingleSelectionResult(null)
+            },
+            successCallBack = {
+                if (it.resultCode == RESULT_OK) {
+                    val croppedUri = it.data?.let { intent -> UCrop.getOutput(intent) }
+
+                    // DELETE ORIGINAL CAMERA FILE
+                    deleteOriginalCameraFileIfNeeded()
+
+                    createSingleSelectionResult(croppedUri)
+                }
+            }
+        )
 
     private val onGetImageFromCameraActivityResult =
         registerActivityResult("Camera", errorCallback = { createSingleSelectionResult(null) }) {
@@ -255,6 +279,7 @@ class ImagePickerActivity : AppCompatActivity(), View.OnClickListener {
             val date =
                 SimpleDateFormat(dateFormatForTakePicture, Locale.getDefault()).format(Date())
             val imageFile = createImageFile(date)
+            cropFile = imageFile
             val cropIntent = UCrop.of(imageUri, Uri.fromFile(imageFile))
                 .withOptions(getUCropOptions()).getIntent(this)
             onCropImageActivityResult.launch(cropIntent)
@@ -330,6 +355,21 @@ class ImagePickerActivity : AppCompatActivity(), View.OnClickListener {
     private fun sendResult(intent: Intent) {
         setResult(RESULT_OK, intent)
         finish()
+    }
+
+    private fun deleteOriginalCameraFileIfNeeded() {
+        fileUri?.let { uri ->
+            try {
+                if (uri.scheme == "file") {
+                    File(uri.path ?: return).delete()
+                } else if (uri.scheme == "content") {
+                    contentResolver.delete(uri, null, null)
+                }
+            } catch (_: Exception) {
+                // ignore safely
+            }
+        }
+        fileUri = null
     }
 
     override fun onDestroy() {

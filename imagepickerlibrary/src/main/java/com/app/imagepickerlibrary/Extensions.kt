@@ -83,6 +83,25 @@ internal fun Context.createImageFile(name: String = ""): File {
 }
 
 /**
+ * Periodic cleanup of old images.
+ */
+internal fun Context.clearOldTempFiles() {
+    val dir = getExternalFilesDir(Environment.DIRECTORY_PICTURES) ?: return
+
+    val now = System.currentTimeMillis()
+    val maxAge = 24 * 60 * 60 * 1000 // 1 day
+
+    dir.listFiles()?.forEach { file ->
+        if (file.name.startsWith("JPEG_") || file.name.startsWith("UCrop_")) {
+            val isOld = now - file.lastModified() > maxAge
+            if (isOld) {
+                file.delete()
+            }
+        }
+    }
+}
+
+/**
  * Extension function to replace fragment in specified container view.
  */
 internal fun AppCompatActivity.replaceFragment(
